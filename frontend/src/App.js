@@ -6,9 +6,11 @@ import './App.css';
 function Dashboard({ onLogout, token }) {
   const [students, setStudents] = useState([]);
   const [zones, setZones] = useState([]);
+  // Set today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     day: '',
-    date: '',
+    date: today,
     period: '',
     student_id: '',
     type: '',
@@ -32,8 +34,9 @@ function Dashboard({ onLogout, token }) {
     });
   }, [token]);
 
+  // Remove date field from the form UI and always send today's date
   const handleChange = e => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({ ...form, [e.target.name]: e.target.value, date: today });
   };
 
   const handleSubmit = async e => {
@@ -54,7 +57,7 @@ function Dashboard({ onLogout, token }) {
         setMessage('Entry logged!');
         setForm({
           day: '',
-          date: '',
+          date: today,
           period: '',
           student_id: '',
           type: '',
@@ -93,11 +96,7 @@ function Dashboard({ onLogout, token }) {
           </select>
         </label>
         <br />
-        <label>
-          Date:
-          <input type="date" name="date" value={form.date} onChange={handleChange} required />
-        </label>
-        <br />
+        {/* Date field removed */}
         <label>
           Period:
           <select name="period" value={form.period} onChange={handleChange} required>
