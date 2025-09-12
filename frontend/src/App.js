@@ -2,21 +2,251 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import './App.css';
 
-function Dashboard({ onLogout }) {
+// Dashboard: Entry logging form
+function Dashboard({ onLogout, token }) {
+  const [students, setStudents] = useState([]);
+  const [zones, setZones] = useState([]);
+  const [form, setForm] = useState({
+    day: '',
+    date: '',
+    period: '',
+    student_id: '',
+    type: '',
+    zone_id: '',
+    zone_detail: '',
+    action: '',
+    notes: '',
+  });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  // Load students and zones for dropdowns
+  React.useEffect(() => {
+    if (!token) return;
+    Promise.all([
+      fetch('/api/students', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch('/api/zones', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    ]).then(([studentsData, zonesData]) => {
+      setStudents(studentsData);
+      setZones(zonesData);
+    });
+  }, [token]);
+
+  const handleChange = e => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setMessage('');
+    setError('');
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage('Entry logged!');
+        setForm({
+          day: '',
+          date: '',
+          period: '',
+          student_id: '',
+          type: '',
+          zone_id: '',
+          zone_detail: '',
+          action: '',
+          notes: '',
+        });
+      } else {
+        setError(data.error || 'Could not log entry');
+      }
+    } catch {
+      setError('Network error');
+    }
+  };
+
   return (
     <div>
-      <h2>Welcome to LC Tracker</h2>
+      <h2>LC Tracker - Log Entry</h2>
       <nav>
         <Link to="/manage">Manage Students/Zones</Link> |{' '}
+        <Link to="/data">View Data</Link> |{' '}
         <button onClick={onLogout}>Logout</button>
       </nav>
       <hr />
-      {/* Dashboard content goes here */}
-      <p>Dashboard coming soon...</p>
+      <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: '0 auto', textAlign: 'left' }}>
+        <label>
+          Day:
+          <select name="day" value={form.day} onChange={handleChange} required>
+            <option value="">Select</option>
+            <option>Monday</option>
+            <option>Tuesday</option>
+            <option>Wednesday</option>
+            <option>Thursday</option>
+            <option>Friday</option>
+          </select>
+        </label>
+        <br />
+        <label>
+          Date:
+          <input type="date" name="date" value={form.date} onChange={handleChange} required />
+        </label>
+        <br />
+        <label>
+          Period:
+          <select name="period" value={form.period} onChange={handleChange} required>
+            <option value="">Select</option>
+            {[4,5,6,7,8].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </label>
+        <br />
+        <label>
+          Student:
+          <select name="student_id" value={form.student_id} onChange={handleChange} required>
+            <option value="">Select</option>
+            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <br />
+        <label>
+          Type:
+          <select name="type" value={form.type} onChange={handleChange} required>
+            <option value="">Select</option>
+            <option value="Class">Class</option>
+            <option value="Study">Study</option>
+          </select>
+        </label>
+        <br />
+        <label>
+          Zone:
+          <select name="zone_id" value={form.zone_id} onChange={handleChange} required>
+            <option value="">Select</option>
+            {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+        </label>
+        <br />
+        <label>
+          Zone Detail:
+          <input type="text" name="zone_detail" value={form.zone_detail} onChange={handleChange} />
+        </label>
+        <br />
+        <label>
+          Action:
+          <select name="action" value={form.action} onChange={handleChange} required>
+            <option value="">Select</option>
+            <option>Self-Directed</option>
+            <option>Coached</option>
+            <option>Redirected</option>
+            <option>Conduct 1</option>
+            <option>Conduct 2</option>
+            <option>Conduct 3</option>
+            <option>Need Attention</option>
+          </select>
+        </label>
+        <br />
+        <label>
+          Notes:
+          <input type="text" name="notes" value={form.notes} onChange={handleChange} />
+        </label>
+        <br />
+        <button type="submit">Log Entry</button>
+      </form>
+      {message && <p style={{ color: 'green' }}>{message}</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 }
 
+// Data: Table view of all entries
+function Data({ token }) {
+  const [entries, setEntries] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [zones, setZones] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch('/api/entries', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch('/api/students', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch('/api/zones', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    ])
+      .then(([entriesData, studentsData, zonesData]) => {
+        setEntries(entriesData);
+        setStudents(studentsData);
+        setZones(zonesData);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load data');
+        setLoading(false);
+      });
+  }, [token]);
+
+  // Helper to get student/zone names
+  const getStudentName = id => students.find(s => s.id === id)?.name || id;
+  const getZoneName = id => zones.find(z => z.id === id)?.name || id;
+
+  return (
+    <div>
+      <h2>LC Tracker - Data Table</h2>
+      <nav>
+        <Link to="/">Log Entry</Link> |{' '}
+        <Link to="/manage">Manage Students/Zones</Link>
+      </nav>
+      <hr />
+      {loading ? (
+        <p>Loading...</p>
+      ) : error ? (
+        <p style={{ color: 'red' }}>{error}</p>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table border="1" cellPadding="4" style={{ margin: '0 auto', minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Period</th>
+                <th>Student</th>
+                <th>Type</th>
+                <th>Zone</th>
+                <th>Zone Detail</th>
+                <th>Action</th>
+                <th>Notes</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(e => (
+                <tr key={e.id}>
+                  <td>{e.date}</td>
+                  <td>{e.day}</td>
+                  <td>{e.period}</td>
+                  <td>{getStudentName(e.student_id)}</td>
+                  <td>{e.type}</td>
+                  <td>{getZoneName(e.zone_id)}</td>
+                  <td>{e.zone_detail}</td>
+                  <td>{e.action}</td>
+                  <td>{e.notes}</td>
+                  <td>{e.timestamp && new Date(e.timestamp).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Manage: Students and Zones (unchanged)
 function Manage({ token }) {
   const [students, setStudents] = useState([]);
   const [zones, setZones] = useState([]);
@@ -26,7 +256,6 @@ function Manage({ token }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Fetch students and zones on mount
   React.useEffect(() => {
     if (!token) return;
     setLoading(true);
@@ -42,7 +271,6 @@ function Manage({ token }) {
       .catch(() => setLoading(false));
   }, [token]);
 
-  // Add student
   const handleAddStudent = async (e) => {
     e.preventDefault();
     setError('');
@@ -67,7 +295,6 @@ function Manage({ token }) {
     }
   };
 
-  // Add zone
   const handleAddZone = async (e) => {
     e.preventDefault();
     setError('');
@@ -96,7 +323,8 @@ function Manage({ token }) {
   return (
     <div>
       <nav>
-        <Link to="/">Dashboard</Link>
+        <Link to="/">Log Entry</Link> |{' '}
+        <Link to="/data">View Data</Link>
       </nav>
       <h3>Manage Students</h3>
       {loading ? <p>Loading...</p> : (
@@ -137,6 +365,7 @@ function Manage({ token }) {
   );
 }
 
+// Auth (unchanged)
 function Auth({ onAuth, showRegister, setShowRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -243,8 +472,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Dashboard onLogout={handleLogout} />} />
+        <Route path="/" element={<Dashboard onLogout={handleLogout} token={token} />} />
         <Route path="/manage" element={<Manage token={token} />} />
+        <Route path="/data" element={<Data token={token} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
