@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import './App.css';
 
+const API_BASE = process.env.REACT_APP_API_BASE || '';
+
 // Dashboard: Entry logging form
 function Dashboard({ onLogout, token }) {
   const [students, setStudents] = useState([]);
@@ -420,7 +422,7 @@ function Auth({ onAuth, showRegister, setShowRegister }) {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -440,7 +442,7 @@ function Auth({ onAuth, showRegister, setShowRegister }) {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, school_name: schoolName }),
