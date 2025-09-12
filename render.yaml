@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: lc-tracker-backend
+    env: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lc-tracker-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+    autoDeploy: true
+
+  - type: web
+    name: lc-tracker-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    autoDeploy: true
+
+databases:
+  - name: lc-tracker-db
+    plan: free
+    postgresMajorVersion: 15
