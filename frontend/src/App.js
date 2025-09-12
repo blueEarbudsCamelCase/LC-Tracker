@@ -6,8 +6,11 @@ import './App.css';
 function Dashboard({ onLogout, token }) {
   const [students, setStudents] = useState([]);
   const [zones, setZones] = useState([]);
-  const today = new Date().toISOString().slice(0, 10);
-  const [day, setDay] = useState('');
+  // Get today's date and day-of-week in user's local time zone
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayDay = dayNames[now.getDay()];
   const [period, setPeriod] = useState('');
   const [entries, setEntries] = useState({});
   const [message, setMessage] = useState('');
@@ -53,7 +56,7 @@ function Dashboard({ onLogout, token }) {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              day,
+              day: todayDay,
               date: today,
               period,
               student_id: student.id,
@@ -62,6 +65,7 @@ function Dashboard({ onLogout, token }) {
               zone_detail: entry.zone_detail || '',
               action: entry.action,
               notes: entry.notes || '',
+              // timestamp will be set by backend as UTC
             }),
           });
           return res.ok;
@@ -88,18 +92,10 @@ function Dashboard({ onLogout, token }) {
       </nav>
       <hr />
       <form onSubmit={handleSubmit} style={{ maxWidth: '100%', margin: '0 auto', textAlign: 'left' }}>
+        <div style={{ marginBottom: 16 }}>
+          <strong>Date:</strong> {today} &nbsp; <strong>Day:</strong> {todayDay}
+        </div>
         <label>
-          Day:
-          <select value={day} onChange={e => setDay(e.target.value)} required>
-            <option value="">Select</option>
-            <option>Monday</option>
-            <option>Tuesday</option>
-            <option>Wednesday</option>
-            <option>Thursday</option>
-            <option>Friday</option>
-          </select>
-        </label>
-        <label style={{ marginLeft: 16 }}>
           Period:
           <select value={period} onChange={e => setPeriod(e.target.value)} required>
             <option value="">Select</option>
@@ -230,9 +226,11 @@ function Data({ token }) {
       });
   }, [token]);
 
-  // Helper to get student/zone names
   const getStudentName = id => students.find(s => s.id === id)?.name || id;
   const getZoneName = id => zones.find(z => z.id === id)?.name || id;
+
+  // Format timestamp in user's local time zone
+  const formatLocal = ts => ts ? new Date(ts).toLocaleString(undefined, { timeZoneName: 'short' }) : '';
 
   return (
     <div>
@@ -275,7 +273,7 @@ function Data({ token }) {
                   <td>{e.zone_detail}</td>
                   <td>{e.action}</td>
                   <td>{e.notes}</td>
-                  <td>{e.timestamp && new Date(e.timestamp).toLocaleString()}</td>
+                  <td>{formatLocal(e.timestamp)}</td>
                 </tr>
               ))}
             </tbody>
