@@ -6,11 +6,17 @@ import './App.css';
 function Dashboard({ onLogout, token }) {
   const [students, setStudents] = useState([]);
   const [zones, setZones] = useState([]);
-  // Get today's date and day-of-week in user's local time zone
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  // Use local time for today
+  function getLocalDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const today = getLocalDateString();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const todayDay = dayNames[now.getDay()];
+  const todayDay = dayNames[new Date().getDay()];
   const [period, setPeriod] = useState('');
   const [entries, setEntries] = useState({});
   const [message, setMessage] = useState('');
