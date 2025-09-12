@@ -6,19 +6,10 @@ import './App.css';
 function Dashboard({ onLogout, token }) {
   const [students, setStudents] = useState([]);
   const [zones, setZones] = useState([]);
-  // Set today's date in YYYY-MM-DD format
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({
-    day: '',
-    date: today,
-    period: '',
-    student_id: '',
-    type: '',
-    zone_id: '',
-    zone_detail: '',
-    action: '',
-    notes: '',
-  });
+  const [day, setDay] = useState('');
+  const [period, setPeriod] = useState('');
+  const [entries, setEntries] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -34,40 +25,53 @@ function Dashboard({ onLogout, token }) {
     });
   }, [token]);
 
-  // Remove date field from the form UI and always send today's date
-  const handleChange = e => {
-    setForm({ ...form, [e.target.name]: e.target.value, date: today });
+  // Handle entry field change for a student
+  const handleEntryChange = (studentId, field, value) => {
+    setEntries(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [field]: value,
+      }
+    }));
   };
 
+  // Submit all entries for the selected day/period
   const handleSubmit = async e => {
     e.preventDefault();
     setMessage('');
     setError('');
     try {
-      const res = await fetch('/api/entries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage('Entry logged!');
-        setForm({
-          day: '',
-          date: today,
-          period: '',
-          student_id: '',
-          type: '',
-          zone_id: '',
-          zone_detail: '',
-          action: '',
-          notes: '',
-        });
+      const results = await Promise.all(
+        students.map(async student => {
+          const entry = entries[student.id];
+          if (!entry || !entry.type || !entry.zone_id || !entry.action) return null;
+          const res = await fetch('/api/entries', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              day,
+              date: today,
+              period,
+              student_id: student.id,
+              type: entry.type,
+              zone_id: entry.zone_id,
+              zone_detail: entry.zone_detail || '',
+              action: entry.action,
+              notes: entry.notes || '',
+            }),
+          });
+          return res.ok;
+        })
+      );
+      if (results.some(r => r)) {
+        setMessage('Entries logged!');
+        setEntries({});
       } else {
-        setError(data.error || 'Could not log entry');
+        setError('No entries were logged. Please fill out at least one student.');
       }
     } catch {
       setError('Network error');
@@ -76,17 +80,17 @@ function Dashboard({ onLogout, token }) {
 
   return (
     <div>
-      <h2>LC Tracker - Log Entry</h2>
+      <h2>LC Tracker - Log Entries</h2>
       <nav>
         <Link to="/manage">Manage Students/Zones</Link> |{' '}
         <Link to="/data">View Data</Link> |{' '}
         <button onClick={onLogout}>Logout</button>
       </nav>
       <hr />
-      <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: '0 auto', textAlign: 'left' }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: '100%', margin: '0 auto', textAlign: 'left' }}>
         <label>
           Day:
-          <select name="day" value={form.day} onChange={handleChange} required>
+          <select value={day} onChange={e => setDay(e.target.value)} required>
             <option value="">Select</option>
             <option>Monday</option>
             <option>Tuesday</option>
@@ -95,66 +99,103 @@ function Dashboard({ onLogout, token }) {
             <option>Friday</option>
           </select>
         </label>
-        <br />
-        {/* Date field removed */}
-        <label>
+        <label style={{ marginLeft: 16 }}>
           Period:
-          <select name="period" value={form.period} onChange={handleChange} required>
+          <select value={period} onChange={e => setPeriod(e.target.value)} required>
             <option value="">Select</option>
             {[4,5,6,7,8].map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </label>
+        <br /><br />
+        <div style={{ overflowX: 'auto' }}>
+          <table border="1" cellPadding="4" style={{ minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th>Student</th>
+                {students.map(s => (
+                  <th key={s.id}>{s.name}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Type</td>
+                {students.map(s => (
+                  <td key={s.id}>
+                    <select
+                      value={entries[s.id]?.type || ''}
+                      onChange={e => handleEntryChange(s.id, 'type', e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      <option value="Class">Class</option>
+                      <option value="Study">Study</option>
+                    </select>
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td>Zone</td>
+                {students.map(s => (
+                  <td key={s.id}>
+                    <select
+                      value={entries[s.id]?.zone_id || ''}
+                      onChange={e => handleEntryChange(s.id, 'zone_id', e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                    </select>
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td>Zone Detail</td>
+                {students.map(s => (
+                  <td key={s.id}>
+                    <input
+                      type="text"
+                      value={entries[s.id]?.zone_detail || ''}
+                      onChange={e => handleEntryChange(s.id, 'zone_detail', e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td>Action</td>
+                {students.map(s => (
+                  <td key={s.id}>
+                    <select
+                      value={entries[s.id]?.action || ''}
+                      onChange={e => handleEntryChange(s.id, 'action', e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      <option>Self-Directed</option>
+                      <option>Coached</option>
+                      <option>Redirected</option>
+                      <option>Conduct 1</option>
+                      <option>Conduct 2</option>
+                      <option>Conduct 3</option>
+                      <option>Need Attention</option>
+                    </select>
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td>Notes</td>
+                {students.map(s => (
+                  <td key={s.id}>
+                    <input
+                      type="text"
+                      value={entries[s.id]?.notes || ''}
+                      onChange={e => handleEntryChange(s.id, 'notes', e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <br />
-        <label>
-          Student:
-          <select name="student_id" value={form.student_id} onChange={handleChange} required>
-            <option value="">Select</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-        <br />
-        <label>
-          Type:
-          <select name="type" value={form.type} onChange={handleChange} required>
-            <option value="">Select</option>
-            <option value="Class">Class</option>
-            <option value="Study">Study</option>
-          </select>
-        </label>
-        <br />
-        <label>
-          Zone:
-          <select name="zone_id" value={form.zone_id} onChange={handleChange} required>
-            <option value="">Select</option>
-            {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
-          </select>
-        </label>
-        <br />
-        <label>
-          Zone Detail:
-          <input type="text" name="zone_detail" value={form.zone_detail} onChange={handleChange} />
-        </label>
-        <br />
-        <label>
-          Action:
-          <select name="action" value={form.action} onChange={handleChange} required>
-            <option value="">Select</option>
-            <option>Self-Directed</option>
-            <option>Coached</option>
-            <option>Redirected</option>
-            <option>Conduct 1</option>
-            <option>Conduct 2</option>
-            <option>Conduct 3</option>
-            <option>Need Attention</option>
-          </select>
-        </label>
-        <br />
-        <label>
-          Notes:
-          <input type="text" name="notes" value={form.notes} onChange={handleChange} />
-        </label>
-        <br />
-        <button type="submit">Log Entry</button>
+        <button type="submit">Log Entries</button>
       </form>
       {message && <p style={{ color: 'green' }}>{message}</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
