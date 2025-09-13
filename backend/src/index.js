@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { pool } = require('./lib/db');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -142,6 +143,12 @@ app.get('/api/entries', authMiddleware, async (req, res) => {
     console.error(e);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, '../../build')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../build', 'index.html'));
 });
 
 const port = process.env.PORT || 4000;
