@@ -13,8 +13,8 @@ COPY backend/package*.json ./
 RUN npm install
 COPY backend/ ./
 
-# Copy frontend build into backend
-COPY --from=frontend-build /app/frontend/build ./build
+# Copy frontend build into /app/build (not ./build)
+COPY --from=frontend-build /app/frontend/build /app/build
 
 # Expose port and start backend
 EXPOSE 4000
